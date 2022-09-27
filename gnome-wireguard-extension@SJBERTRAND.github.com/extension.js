@@ -31,7 +31,12 @@ const PopupMenu = imports.ui.popupMenu;
 
 const _ = ExtensionUtils.gettext;
 const Me = imports.misc.extensionUtils.getCurrentExtension();
-const client=NM.Client.new(null);
+
+
+let _setTimer = null;
+let client = null;
+let WireGuard = null;
+
 
 const NMConnectionCategory = {
 WIREGUARD: 'wireguard',
@@ -43,7 +48,7 @@ var NMConnectionWireguard = class{
 		this._type = type;
 		};
 		
-		_get_wg_connections(){
+		_get_wg_connections(client){
 			const wg_Connections = [];
 			const connections=client.get_connections(); 
 				for ( let connection in connections) {
@@ -55,9 +60,9 @@ var NMConnectionWireguard = class{
 		};
 		
 	
-		_get_wg_connections_names(){
+		_get_wg_connections_names(client){
 			const wg_connections_names = [];
-			const _connections = this._get_wg_connections();
+			const _connections = this._get_wg_connections(client);
 				for (let _connection in _connections){
 				wg_connections_names.push(_connections[_connection].get_id());
 				};
@@ -77,7 +82,7 @@ var NMConnectionWireguard = class{
 		};
 
 						
-		_switch_func(item, _connection, _conn_id ){
+		_switch_func(item, _connection, _conn_id, client ){
 			item.connect('activate', () => {
         			if ( item._switch.state == true) {
         			client.activate_connection_async(_connection,null,null,null,null);
@@ -95,8 +100,8 @@ var NMConnectionWireguard = class{
 		};
 		
 		
-		_create_switches(menu) {
-		let conn_names = this._get_wg_connections_names();
+		_create_switches(menu, client) {
+		let conn_names = this._get_wg_connections_names(client);
 	
 			for ( let val in conn_names ) {
 				let _connection=client.get_connection_by_id(conn_names[val]);
@@ -105,17 +110,17 @@ var NMConnectionWireguard = class{
 				let _conn_id = conn_names[val];
 				let item = new PopupMenu.PopupSwitchMenuItem(_(_conn_id),false);
 				this._update_status(_device, item);
-				this._switch_func(item,_connection, _conn_id);
+				this._switch_func(item,_connection, _conn_id, client);
         			item.set_name(_conn_id);
  				menu.addMenuItem(item);
 			};
 		};
 		
 		
-		_update_switch_menu(menu) {
+		_update_switch_menu(menu, client) {
 		
 			let menu_list = menu._getMenuItems();
- 			let conn_list = this._get_wg_connections_names(); 
+ 			let conn_list = this._get_wg_connections_names(client); 
 			let switch_list = [];
 	
 			//remove switches without connection
@@ -140,7 +145,7 @@ var NMConnectionWireguard = class{
 						let _device=client.get_device_by_iface(_settings.interface_name);
 						let item = new PopupMenu.PopupSwitchMenuItem(_(_conn_id),false);
 						this._update_status(_device, item);
-						this._switch_func(item,_connection, _conn_id);
+						this._switch_func(item,_connection, _conn_id, client);
 						item.set_name(_conn_id);
 						menu.addMenuItem(item, 0)
         				};
@@ -166,7 +171,7 @@ var NMConnectionWireguard = class{
 
 const Indicator = GObject.registerClass(
 class Indicator extends PanelMenu.Button {
-    _init() {
+    _init(client, WireGuard) {
         super._init(0.0, _('Wireguard-extension'));
 
 	// Set the icon
@@ -177,11 +182,11 @@ class Indicator extends PanelMenu.Button {
 	this.add_child(icon);
 	
 	//// Create indicator menu items ////
-	let WireGuard = new NMConnectionWireguard(NMConnectionCategory.WIREGUARD);
+	
 	let menu=this.menu;
 	
 	//Create switches
-	WireGuard._create_switches(menu);
+	WireGuard._create_switches(menu, client);
  
         //Create setting menu
         let item_setting = new PopupMenu.PopupMenuItem(_('Connections Settings'));
@@ -193,8 +198,8 @@ class Indicator extends PanelMenu.Button {
         
 	//// Update indicator items every 5 seconds ////
         //Set the execution for update every 5 seconds
-	setInterval(function() {WireGuard._update_switch_menu(menu); }, 5000);
-             
+
+           
     };
 });
 
@@ -206,11 +211,22 @@ class Extension {
     }
 
     enable() {
-        this._indicator = new Indicator();
+        client=NM.Client.new(null);
+        WireGuard = new NMConnectionWireguard(NMConnectionCategory.WIREGUARD);
+        this._indicator = new Indicator(client, WireGuard);
         Main.panel.addToStatusArea(this._uuid, this._indicator);
+        _setTimer = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, 5, () => {
+        WireGuard._update_switch_menu(menu, client);
+        return GLib.SOURCE_CONTINUE;
+        });
     }
 
     disable() {
+    	client=null;
+    	GLib.Source.remove(_setTimer);
+    	_setTimer= null;
+    	Glib.Source.remove(_setTimer);
+    	WireGuard= null;
         this._indicator.destroy();
         this._indicator = null;
     }

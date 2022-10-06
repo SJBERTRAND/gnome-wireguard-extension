@@ -216,7 +216,7 @@ class Extension {
         this._indicator = new Indicator(client, WireGuard);
         Main.panel.addToStatusArea(this._uuid, this._indicator);
         _setTimer = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, 5, () => {
-        WireGuard._update_switch_menu(menu, client);
+        WireGuard._update_switch_menu(this._indicator.menu, client);
         return GLib.SOURCE_CONTINUE;
         });
     }
@@ -225,7 +225,6 @@ class Extension {
     	client=null;
     	GLib.Source.remove(_setTimer);
     	_setTimer= null;
-    	Glib.Source.remove(_setTimer);
     	WireGuard= null;
         this._indicator.destroy();
         this._indicator = null;

@@ -36,6 +36,7 @@ const Me = imports.misc.extensionUtils.getCurrentExtension();
 let _setTimer = null;
 let client = null;
 let WireGuard = null;
+let icon = null;
 
 
 const NMConnectionCategory = {
@@ -117,11 +118,12 @@ var NMConnectionWireguard = class{
 		};
 		
 		
-		_update_switch_menu(menu, client) {
+		_update_switch_menu(menu, client ) {
 		
 			let menu_list = menu._getMenuItems();
  			let conn_list = this._get_wg_connections_names(client); 
 			let switch_list = [];
+			let iface_list = [];
 	
 			//remove switches without connection
 				for ( let item in menu_list) {
@@ -159,10 +161,20 @@ var NMConnectionWireguard = class{
 						let _connection=client.get_connection_by_id(item_name);
 						let _settings=_connection.get_setting_connection();
 						let _device=client.get_device_by_iface(_settings.interface_name);
+							if (_device != null) {
+							iface_list.push(_device);
+							};
 						this._update_status(_device, _new_menu_list[item]);
 					};
         		};
-		
+        		
+        		// Update icon status
+        		if ( iface_list.length > 0) {
+        		icon.set_icon_name('network-vpn-symbolic');
+        		} else {
+        		icon.set_icon_name('network-vpn-disabled-symbolic');
+        		};
+				
 		
 		};
 	
@@ -175,10 +187,10 @@ class Indicator extends PanelMenu.Button {
         super._init(0.0, _('Wireguard-extension'));
 
 	// Set the icon
-	let icon = new St.Icon({
-    	style_class: 'system-status-icon'
+	icon = new St.Icon({
+    	style_class: 'system-status-icon',
+    	icon_name: 'network-vpn-disabled-symbolic'
 	});
-	icon.gicon = Gio.icon_new_for_string(`${Me.path}/icons/wireguard-icon.svg`);
 	this.add_child(icon);
 	
 	//// Create indicator menu items ////
@@ -195,11 +207,7 @@ class Indicator extends PanelMenu.Button {
         });      
         this.menu.addMenuItem(item_setting);
         
-        
-	//// Update indicator items every 5 seconds ////
-        //Set the execution for update every 5 seconds
-
-           
+              
     };
 });
 
@@ -216,7 +224,7 @@ class Extension {
         this._indicator = new Indicator(client, WireGuard);
         Main.panel.addToStatusArea(this._uuid, this._indicator);
         _setTimer = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, 5, () => {
-        WireGuard._update_switch_menu(this._indicator.menu, client);
+        WireGuard._update_switch_menu(this._indicator.menu, client );
         return GLib.SOURCE_CONTINUE;
         });
     }
@@ -226,6 +234,7 @@ class Extension {
     	GLib.Source.remove(_setTimer);
     	_setTimer= null;
     	WireGuard= null;
+    	icon = null;
         this._indicator.destroy();
         this._indicator = null;
     }

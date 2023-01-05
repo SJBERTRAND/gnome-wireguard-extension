@@ -170,9 +170,9 @@ var NMConnectionWireguard = class{
         		
         		// Update icon status
         		if ( iface_list.length > 0) {
-        		icon.gicon = Gio.icon_new_for_string(`${Me.path}/icons/wireguard-icon.svg`);
+        		icon.set_icon_name('network-vpn-symbolic');
         		} else {
-        		icon.gicon = Gio.icon_new_for_string(`${Me.path}/icons/wireguard-icon-inactive.svg`);
+        		icon.set_icon_name('network-vpn-disabled-symbolic');
         		};
 				
 		
@@ -189,9 +189,8 @@ class Indicator extends PanelMenu.Button {
 	// Set the icon
 	icon = new St.Icon({
     	style_class: 'system-status-icon',
-    	//icon_name: 'network-vpn-disabled-symbolic'
+    	icon_name: 'network-vpn-disabled-symbolic'
 	});
-	icon.gicon = Gio.icon_new_for_string(`${Me.path}/icons/wireguard-icon-inactive.svg`);
 	this.add_child(icon);
 	
 	//// Create indicator menu items ////

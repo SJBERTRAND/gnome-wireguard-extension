@@ -22,7 +22,7 @@
 
 const GETTEXT_DOMAIN = 'Wireguard-extension';
 
-const { GObject, St, NM, GLib, Gio } = imports.gi;
+const { GObject, St, NM, GLib, Gio, Gtk } = imports.gi;
 
 const ExtensionUtils = imports.misc.extensionUtils;
 const Main = imports.ui.main;
@@ -177,8 +177,13 @@ var NMConnectionWireguard = class{
 				
 		
 		};
+
+	                
+	};
 	
-};
+	
+	
+
 
 
 const Indicator = GObject.registerClass(
@@ -204,7 +209,8 @@ class Indicator extends PanelMenu.Button {
         //Create setting menu
         let item_setting = new PopupMenu.PopupMenuItem(_('Connections Settings'));
         item_setting.connect('activate', () => {;
-            WireGuard._open_settings();
+            //WireGuard._open_settings();
+            ExtensionUtils.openPrefs();
         });      
         this.menu.addMenuItem(item_setting);
         

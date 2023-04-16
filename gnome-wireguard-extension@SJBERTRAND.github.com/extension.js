@@ -67,7 +67,7 @@ var NMConnectionWireguard = class{
                 _wg_connections.forEach(_connection => {
                         this._add_switch(menu, client, _connection, icon);      
                 });
-            this._update_icon(menu, client, icon);
+            this._update_icon(client, icon);
         };
 
 
@@ -86,30 +86,36 @@ var NMConnectionWireguard = class{
                 this._create_switch_connections(item, client, _connection, icon, menu);
                 menu.addMenuItem(item, 0);  
         };
-
+              
+        _update_switches(menu, client, _connection, icon){
+            if ( _connection.get_connection_type() == 'wireguard' ) {
+                let _item_list = menu._getMenuItems();
+                    _item_list.forEach(item=>{
+                        if ( item._connection == _connection ) {
+                            item.destroy();
+                        };
+                    });                
+                this._update_icon(client, icon);
+            };
+        };
+        
+        
+        _update_switches_toggle_state(menu, client, _device, icon) {
+            if ( _device.get_type_description() == 'wireguard' ){
+                let _item_list = menu._getMenuItems();
+                    _item_list.forEach(item=>{
+                        if ( item._iface == _device.get_iface() ){
+                            let _device_list_names = this._get_device_list_names(client);
+                            let _state = _device_list_names.includes(item._iface);              
+                            item.setToggleState(_state);     
+                        };
+                    });
+                this._update_icon(client, icon);
+            };
+        };
+        
+        
         _create_switch_connections(item, client, _connection, icon, menu ){
-            client.connect('connection-removed', (_client,_connection) => {
-                            if ( _connection == item._connection) {
-                                item.destroy();
-                            };                       
-            });
-            client.connect('device-added', (_client, _device) => {
-                        if ( _device.get_type_description() == 'wireguard' ){
-                                if ( _device.get_iface() == item._iface ){
-                                    item.setToggleState(true);
-                                };
-                        };
-                        this._update_icon(menu, client, icon);
-            });  
-            client.connect('device-removed', (_client, _device) => {
-                      if ( _device.get_type_description() == 'wireguard' ){
-                                if ( _device.get_iface() == item._iface ){
-                                    item.setToggleState(false);
-                                };
-                        };
-                        this._update_icon(menu, client, icon);
-            });
-            
             item.connect('activate', () =>{
                         if (item._switch.state == true){
                             client.activate_connection_async(_connection,null,null,null,null);
@@ -121,13 +127,11 @@ var NMConnectionWireguard = class{
                                     client.deactivate_connection_async(_active_connection,null,null);
                                     Main.notify(_('Wireguard ' + _connection.get_id() +' Inactive'));
                             });    
-                        };
-                        
+                        };                
             });
         };
         
-        
-        _update_icon(menu, client, icon){
+        _update_icon(client, icon){
           let _devices_list=client.get_devices();
             let _wg_devices=[];
                 _devices_list.forEach(_device => {
@@ -168,6 +172,24 @@ class Indicator extends PanelMenu.Button {
         // Connect with NM and add new switches when connection are detected       
         client.connect('connection-added', (_client,_connection) => {
             WireGuard._create_new_switches(this.menu, client, _connection, icon);
+        });
+        
+        // Connect with NM and remove switches when connection are deleted
+        
+        client.connect('connection-removed', (_client,_connection) => {
+            WireGuard._update_switches(this.menu, client, _connection, icon);
+        });
+        
+        // Connect with NM and update switches when devices are added
+        
+          client.connect('device-added', (_client,_device) => {
+            WireGuard._update_switches_toggle_state(this.menu, client, _device, icon);
+        });
+        
+        // Connect with NM and remove switches when devices are removed and do nothing when they are deleted
+        
+          client.connect('device-removed', (_client,_device) => {
+            WireGuard._update_switches_toggle_state(this.menu, client, _device, icon);
         });
         
         // Load the preferences when clicking on setttings

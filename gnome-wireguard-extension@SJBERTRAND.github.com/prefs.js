@@ -133,19 +133,10 @@ var WireGuardOptions = class {
             
     _create_row(group, _connection){
                 const row = new Adw.ActionRow({ title: _connection.get_id() });
-                //Add signal to detect when connection is removed
-                log('Im here the connection added is' + _connection.get_id() );
-                this.client.connect('connection-removed', (_client, _wg_connection) => {
-                    if ( _wg_connection == _connection) {
-                                group.remove(row);
-                    };   
-                });
                 let del_btn = new Gtk.Button({ label: 'Delete', valign: Gtk.Align.CENTER});
             		del_btn.connect('clicked', () => {
 		            this._confirm_delete(group, row, _connection.get_id());
 	            	});
-
-	            	//Add buttons to the row
 	        	row.add_suffix(del_btn);                
                 group.add(row);
     };
@@ -213,34 +204,17 @@ function fillPreferencesWindow(window) {
     wireguard_options._create_rows(group);
     
     //Create a Bottom label
-    
     wireguard_options._create_bottom_label(bottom_group);
     
-    
     //Create a button to select a wireguard configuration
-    
      wireguard_options._create_choose_button(bottom_group);
-
-    // Create a new preferences row
-    const row = new Adw.ActionRow({ title: 'Show Extension Indicator' });
-    group.add(row);
-
-    // Create the switch and bind its value to the `show-indicator` key
-    const toggle = new Gtk.Switch({
-        active: settings.get_boolean ('show-indicator'),
-        valign: Gtk.Align.CENTER,
-    });
-    settings.bind(
-        'show-indicator',
-        toggle,
-        'active',
-        Gio.SettingsBindFlags.DEFAULT
-    );
     
-    // Add the switch to the row
-    row.add_suffix(toggle);
-    row.activatable_widget = toggle;
-
+    // Create a signal to NM to check for added connection
+    client.connect('connection-added', (_client, _connection) => {
+        if ( _connection.get_connection_type() == 'wireguard' ) {
+               wireguard_options._create_row(group, _connection);
+        };
+    });
 
     // Add our page to the window
     window.add(page);
@@ -252,6 +226,3 @@ function fillPreferencesWindow(window) {
     
 }
 
-
-
-///////////////// Need to add something that destroy the client when the windwi is closed ////////////////

@@ -181,7 +181,7 @@ function init() {
 function fillPreferencesWindow(window) {
     // Use the same GSettings schema as in `extension.js`
     const settings = ExtensionUtils.getSettings(
-        'gnome-wireguard-extension@SJBERTRAND.github.com');
+        'org.gnome.shell.extensions.gnome-wireguard-extension@SJBERTRAND.github.com');
     
     // Initialize the constructor
     const client =NM.Client.new(null);

@@ -157,7 +157,7 @@ class Indicator extends PanelMenu.Button {
 
         // This part needed for the prefs
         this.settings = ExtensionUtils.getSettings(
-        'gnome-wireguard-extension@SJBERTRAND.github.com');
+        'org.gnome.shell.extensions.gnome-wireguard-extension@SJBERTRAND.github.com');
         
         let icon = new St.Icon({
     	style_class: 'system-status-icon',

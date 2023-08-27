@@ -76,15 +76,21 @@ var NMConnectionWireguard = class{
         };
         
         _add_switch(menu, client, _connection, icon){
+            if ( _connection.is_type(this._type)){
                 let item = new PopupMenu.PopupSwitchMenuItem(_(_connection.get_id()),false);                   
                 item.set_name(_connection.get_id());
                 item._iface=_connection.get_interface_name();
                 item._connection=_connection;
+                //Working here
+                _connection.get_setting_connection().autoconnect=false;
+                _connection.commit_changes_async(true, null, null);
+                // Stop working
                 let _device_list_names = this._get_device_list_names(client);
                 let _state = _device_list_names.includes(_connection.get_interface_name());
                 item.setToggleState(_state);
                 this._create_switch_connections(item, client, _connection, icon, menu);
-                menu.addMenuItem(item, 0);  
+                menu.addMenuItem(item, 0);
+            };
         };
               
         _update_switches(menu, client, _connection, icon){

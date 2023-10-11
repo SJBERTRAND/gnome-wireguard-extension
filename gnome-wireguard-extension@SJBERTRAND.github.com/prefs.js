@@ -25,8 +25,6 @@ var WireGuardOptions = class {
         return _wg_connections;
     };
 
-
-
     _select_configuration_file() { //Create a GTK file selector
 
         let select_win = new Gtk.FileChooserDialog({
@@ -39,7 +37,6 @@ var WireGuardOptions = class {
         let filter = new Gtk.FileFilter();
         filter.add_suffix('conf');
         select_win.add_filter(filter);
-
 
         // Add the button OK
         select_win.add_button('add', -5).connect('clicked', () => {
@@ -170,9 +167,6 @@ var WireGuardOptions = class {
         });
         bottom_group.add(button1);
     };
-
-
-
 }; // End of constructor WireGuardOptions
 
 
@@ -181,11 +175,6 @@ function init() {
 
 export default class MyExtensionPreferences extends ExtensionPreferences {
     fillPreferencesWindow(window) {
-        // Use the same GSettings schema as in `extension.js`
-        // Getting the extension object by UUID
-        // extensionObject = Extension.lookupByUUID('org.gnome.shell.extensions.gnome-wireguard-extension@SJBERTRAND.github.com');
-        // const settings = extensionObject.getSettings();
-
         // Initialize the constructor
         const client = NM.Client.new(null);
         const wireguard_options = new WireGuardOptions(client);

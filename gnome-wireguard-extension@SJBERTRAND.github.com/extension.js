@@ -27,13 +27,12 @@ import St from 'gi://St'
 import NM from 'gi://NM'
 import Gio from 'gi://Gio'
 
-import Main from 'resource:///org/gnome/shell/ui/main.js';
-import PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
-import PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
+import * as Main from 'resource:///org/gnome/shell/ui/main.js';
+import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
+import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 
 import { Extension, gettext as _ } from 'resource:///org/gnome/shell/extensions/extension.js';
 
-let extensionObject;
 
 const NMConnectionCategory = {
     WIREGUARD: 'wireguard',
@@ -148,6 +147,8 @@ var NMConnectionWireguard = class {
                 _wg_devices.push(_device);
             };
         });
+        // Getting the extension object by UUID
+        let extensionObject = Extension.lookupByUUID('gnome-wireguard-extension@SJBERTRAND.github.com');
         if (_wg_devices.length > 0) {
             icon.gicon = Gio.icon_new_for_string(`${extensionObject.path}/icons/wireguard-icon.svg`);
         } else {
@@ -158,17 +159,16 @@ var NMConnectionWireguard = class {
 };
 
 
-
 const Indicator = GObject.registerClass(
     class Indicator extends PanelMenu.Button {
         _init(client, WireGuard) {
             super._init(0.0, _('Wireguard-extension'));
 
             // Getting the extension object by UUID
-            extensionObject = Extension.lookupByUUID('org.gnome.shell.extensions.gnome-wireguard-extension@SJBERTRAND.github.com');
+            let extensionObject = Extension.lookupByUUID('gnome-wireguard-extension@SJBERTRAND.github.com');
 
             // This part needed for the prefs
-            this.settings = extensionObject.getSettings();
+            this.settings = extensionObject.getSettings('org.gnome.shell.extensions.gnome-wireguard-extension@SJBERTRAND.github.com');
 
             let icon = new St.Icon({
                 style_class: 'system-status-icon',
@@ -213,16 +213,12 @@ const Indicator = GObject.registerClass(
     });
 
 
-export class MyExtension extends Extension {
-    constructor(uuid) {
-        this._uuid = uuid;
-    }
-
+export default class WireguardExtension extends Extension {
     enable() {
         this.client = NM.Client.new(null);
         this.WireGuard = new NMConnectionWireguard(NMConnectionCategory.WIREGUARD);
         this._indicator = new Indicator(this.client, this.WireGuard);
-        Main.panel.addToStatusArea(this._uuid, this._indicator);
+        Main.panel.addToStatusArea(this.uuid, this._indicator);
     }
 
     disable() {
@@ -234,5 +230,5 @@ export class MyExtension extends Extension {
 }
 
 function init(meta) {
-    return new MyExtension(meta.uuid);
+    return new WireguardExtension(meta.uuid);
 }

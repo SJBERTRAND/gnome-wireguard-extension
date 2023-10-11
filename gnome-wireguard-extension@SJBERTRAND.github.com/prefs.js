@@ -173,7 +173,7 @@ var WireGuardOptions = class {
 function init() {
 }
 
-export default class MyExtensionPreferences extends ExtensionPreferences {
+export default class WireguardPreferences extends ExtensionPreferences {
     fillPreferencesWindow(window) {
         // Initialize the constructor
         const client = NM.Client.new(null);

@@ -3,10 +3,10 @@
   "description": "Enable/Disable Wireguard tunnels",
   "name": "WireGuard-VPN-extension",
   "shell-version": [
-    "45"
+    "45","46"
   ],
   "gettext-domain": "gnome-wireguard-extension@SJBERTRAND.github.com",
   "url": "https://github.com/SJBERTRAND/gnome-wireguard-extension",
   "uuid": "gnome-wireguard-extension@SJBERTRAND.github.com",
-  "version": 12
+  "version": 13
 }

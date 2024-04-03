@@ -127,13 +127,13 @@ var NMConnectionWireguard = class {
         item.connect('activate', () => {
             if (item._switch.state == true) {
                 client.activate_connection_async(_connection, null, null, null, null);
-                Main.notify(_('Wireguard ' + _connection.get_id() + ' Active'));
+                //Main.notify(_('Wireguard ' + _connection.get_id() + ' Active'));
             } else if (item._switch.state == false) {
                 let _active_connections = client.get_active_connections();
                 _active_connections.forEach(_active_connection => {
                     if (_active_connection.get_id() == _connection.get_id())
                         client.deactivate_connection_async(_active_connection, null, null);
-                    Main.notify(_('Wireguard ' + _connection.get_id() + ' Inactive'));
+                   // Main.notify(_('Wireguard ' + _connection.get_id() + ' Inactive'));
                 });
             };
         });

@@ -46,7 +46,18 @@ var WireGuardOptions = class {
             let conf_file = select_win.get_file();
 
             // Add the connection when clicking the button
-            GLib.spawn_command_line_sync(`nmcli connection import type wireguard file "${conf_file.get_path()}"`);
+            let [, , stderr, status] = GLib.spawn_command_line_sync(`nmcli connection import type wireguard file "${conf_file.get_path()}"`);
+
+            // Show nmcli error if the import failed
+            if (status !== 0) {
+                let error_msg = new TextDecoder().decode(stderr).trim();
+                let error_dialog = new Gtk.AlertDialog({
+                    message: 'Failed to import Wireguard configuration',
+                    detail: error_msg || `nmcli exited with status ${status}`,
+                    modal: true,
+                });
+                error_dialog.show(null);
+            };
         });
 
         // Add the button cancel

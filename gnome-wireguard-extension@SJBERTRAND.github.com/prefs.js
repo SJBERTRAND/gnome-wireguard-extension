@@ -1,231 +1,236 @@
-'use strict';
-
+import Gio from 'gi://Gio';
 import Adw from 'gi://Adw';
-import Gtk from 'gi://Gtk';
 import NM from 'gi://NM';
 import GLib from 'gi://GLib';
+import Gtk from 'gi://Gtk?version=4.0';
 
-import { ExtensionPreferences, gettext as _ } from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
+import {ExtensionPreferences, gettext as _} from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
-
-var WireGuardOptions = class {
-    constructor(client) {
-        this.client = client;
+const WGPreferences = class {
+    constructor(_settings){
+        this.settings = _settings
     };
 
-
-    _get_wireguard_connections() {
-        let _connections = this.client.get_connections();
-        let _wg_connections = [];
-        _connections.forEach(item => {
-            if (item.is_type('wireguard')) {
-                _wg_connections.push(item);
-            }
+    _create_connection_row(connection,group,client,_cancel){
+        //Create a new row for the connection
+        let connection_row = new Adw.ActionRow({
+            title:_(connection.get_id())
         });
-        return _wg_connections;
+        // Create a delete button for the connection
+        const delete_button = new Gtk.Button({
+            label: _('Delete')
+        });
+        // Create a signal to destroy the row if the connection is removed
+        client.connect('connection-removed',(_client,_connection) => {
+            if ( _connection.get_uuid() == connection.get_uuid() ){
+                group.remove(connection_row);
+            };
+        });
+        // Create a signal for when the delete button is pressed
+        delete_button.connect('clicked', () => { 
+            const _delete_dialog = Adw.AlertDialog.new(_(`Delete Wireguard Connection "${connection.get_id()}" ?`),
+            _('Deleted connection cannot be restored'));
+            _delete_dialog.add_response('cancel',_('Cancel'));
+            _delete_dialog.add_response('delete',_('Delete'));
+            _delete_dialog.set_close_response('cancel');
+            _delete_dialog.set_default_response('cancel');
+            _delete_dialog.set_response_appearance('delete',2);        
+            _delete_dialog.connect('response',(dialog,response) => {
+                if (response == 'delete'){
+                    
+                    connection.delete_async(_cancel,null);
+                };
+            });   
+            _delete_dialog.present(delete_button);   
+        });
+        
+        //Add the button to the row
+        connection_row.add_suffix(delete_button);
+        //Add the row to the group
+        group.add(connection_row);
     };
-
-    _select_configuration_file() { //Create a GTK file selector
-
-        let select_win = new Gtk.FileChooserDialog({
-            use_header_bar: 1,
-            title: 'Choose a Wireguard .conf file',
-            action: Gtk.FileChooserAction.OPEN,
-            modal: true,
+    
+    _create_add_connection_row(group,_cancel,_client){
+        const add_connection_row = new Adw.ActionRow({
+            title:_('Add new Wireguard connection'),
+            focusable: false
         });
-
-        let filter = new Gtk.FileFilter();
-        filter.add_suffix('conf');
-        select_win.add_filter(filter);
-
-        // Add the button OK
-        select_win.add_button('add', -5).connect('clicked', () => {
-            select_win.destroy();
-
-            // Store file choosen in conf_file
-            let conf_file = select_win.get_file();
-
-            // Add the connection when clicking the button
-            let [, , stderr, status] = GLib.spawn_command_line_sync(`nmcli connection import type wireguard file "${conf_file.get_path()}"`);
-
-            // Show nmcli error if the import failed
-            if (status !== 0) {
-                let error_msg = new TextDecoder().decode(stderr).trim();
-                let error_dialog = new Gtk.AlertDialog({
-                    message: 'Failed to import Wireguard configuration',
-                    detail: error_msg || `nmcli exited with status ${status}`,
-                    modal: true,
+        
+        const add_button = new Gtk.Button({
+            label: _('Add')
+        });
+        
+        add_connection_row.add_suffix(add_button);
+        group.add(add_connection_row);
+        
+        add_button.connect('clicked', ()=>{
+            //Create a file chooser for the configuration file
+            const _file_select = new Gtk.FileDialog({
+                title: _('Select a Wireguard configuration file'),
+                accept_label: _('Add')
+            });
+            const _file_filter = new Gtk.FileFilter({
+                suffixes: ['conf']
+            });
+            _file_select.set_default_filter(_file_filter);
+            
+                //Create a signal to listen to connection added and when added remove the autoconnect
+                let _connect_signal = _client.connect('connection-added',(client, connection) =>{
+                    if ( connection.get_setting_connection().autoconnect){
+                        connection.get_setting_connection().autoconnect=false;
+                        connection.commit_changes_async(true,_cancel,null);
+                        };     
+                    _client.disconnect(_connect_signal);
+                    _connect_signal = null;
                 });
-                error_dialog.show(null);
-            };
-        });
+            
+                //Present the file chooser
+                _file_select.open(null,_cancel,(dialog, async_result)=>{                
+                    const selected_file = _file_select.open_finish(async_result);
+                    
+                    // Import the file through command line
+                    let [, , stderr, status] = GLib.spawn_command_line_sync(`nmcli connection import type wireguard file "${selected_file.get_path()}"`);
+                    
+                    // Show nmcli error if the import failed
+                   if (status !== 0) {
+                        let error_msg = new TextDecoder().decode(stderr).trim();
+                         let error_dialog = new Gtk.AlertDialog({
+                            message: 'Failed to import Wireguard configuration',
+                            detail: error_msg || `nmcli exited with status ${status}`,
+                            modal: true,
+                        });
+                        error_dialog.show(null);
+                    };
 
-        // Add the button cancel
-        select_win.add_button('Cancel', -6).connect('clicked', () => {
-            select_win.destroy();
-        });
-
-        // Present the window
-        select_win.present();
-
-    }; //end of select configuration file
-
-
-    _confirm_delete(group, row, _conn_id) {
-
-        let conf_win = new Gtk.Window({
-            title: 'Delete Wireguard Connection',
-            modal: true,
-            destroy_with_parent: true,
-            resizable: false,
-        });
-
-        let conf_box = new Gtk.Box({
-            orientation: Gtk.Orientation.VERTICAL,
-            halign: Gtk.Align.CENTER,
-            valign: Gtk.Align.CENTER,
-            marginTop: 36,
-            marginBottom: 36,
-            marginStart: 36,
-            marginEnd: 36,
-            spacing: 18,
-        });
-
-        conf_win.child = conf_box;
-
-        let conf_btn_yes = new Gtk.Button({
-            label: 'Yes',
-        });
-
-        conf_btn_yes.connect('clicked', () => {
-            GLib.spawn_command_line_sync(`nmcli connection delete "${_conn_id}"`);
-            group.remove(row);
-            conf_win.destroy();
-        });
-
-        let conf_btn_no = new Gtk.Button({
-            label: 'No',
-        });
-
-        conf_btn_no.connect('clicked', () => {
-            conf_win.destroy();
-        });
-
-        let conf_lbl = new Gtk.Label({
-            label: `Are you sure you want to delete ${_conn_id} ?`,
-            valign: Gtk.Align.CENTER,
-        });
-
-        let btn_box = new Gtk.Box({
-            orientation: Gtk.Orientation.HORIZONTAL,
-            halign: Gtk.Align.CENTER,
-            valign: Gtk.Align.CENTER,
-            spacing: 18,
-        });
-
-        conf_box.append(conf_lbl);
-        conf_box.append(btn_box);
-        btn_box.append(conf_btn_yes);
-        btn_box.append(conf_btn_no);
-
-
-        conf_win.present();
-    }; //end of confirm delete
-
-
-    _create_rows(group) {
-        let _wg_connections = this._get_wireguard_connections();
-        _wg_connections.forEach(_connection => {
-            this._create_row(group, _connection);
-        });
+            });
+        }); //End of button cliked
+        
     };
-
-
-    _create_row(group, _connection) {
-        const row = new Adw.ActionRow({ title: _connection.get_id() });
-        let del_btn = new Gtk.Button({ label: 'Delete', valign: Gtk.Align.CENTER });
-        del_btn.connect('clicked', () => {
-            this._confirm_delete(group, row, _connection.get_id());
+    
+    _create_change_icon_rows(icon_group,_cancel){
+        //Create filter for selection
+        const _icon_filter = new Gtk.FileFilter({
+            suffixes: ['svg','png']
         });
-        row.add_suffix(del_btn);
-        group.add(row);
+        
+        //Active Icon row
+        let active_row = new Adw.ActionRow({
+            title:_('Choose active connection Icon')
+        });
+        const active_button = new Gtk.Button({
+            label: _('Select')
+        });
+        active_row.add_suffix(active_button);
+        
+        active_button.connect('clicked', ()=>{
+            const _active_select = new Gtk.FileDialog({
+                accept_label: _('Select')
+            });
+            _active_select.set_default_filter(_icon_filter);
+            _active_select.open(null,_cancel,(dialog, async_result)=>{
+                const new_active_icon = _active_select.open_finish(async_result).get_path();
+                this.settings.set_string('active',new_active_icon);
+            });
+         
+        });
+        
+        //Inactive icon row
+        let inactive_row = new Adw.ActionRow({
+            title:_('Choose inactive connection Icon')
+        });
+        const inactive_button = new Gtk.Button({
+            label: _('Select')
+        });
+        inactive_row.add_suffix(inactive_button);
+        
+        inactive_button.connect('clicked', ()=>{
+            const _inactive_select = new Gtk.FileDialog({
+                accept_label: _('Select')
+            });
+            _inactive_select.set_default_filter(_icon_filter);
+            _inactive_select.open(null,_cancel,(dialog, async_result)=>{
+                const new_inactive_icon = _inactive_select.open_finish(async_result).get_path();
+                this.settings.set_string('inactive',new_inactive_icon);
+            });
+        });
+        
+        //Reset Icon row
+        let reset_row = new Adw.ActionRow({
+            title:_('Reset Icons to default')
+        });
+        const reset_button = new Gtk.Button({
+            label: _('Reset')
+        });
+        reset_row.add_suffix(reset_button);
+        
+        reset_button.connect('clicked', ()=> {
+             this.settings.reset('inactive');
+             this.settings.reset('active');
+        });
+        
+        
+        
+        // Add the rows
+        icon_group.add(active_row);
+        icon_group.add(inactive_row);
+        icon_group.add(reset_row);
     };
+    
+};
 
-    _create_top_label(top_group) {
-        const top_label = new Gtk.Label({
-            label: 'Available Wireguard Connection(s)',
-            valign: Gtk.Align.CENTER,
-        });
-        top_group.add(top_label);
-    };
-
-    _create_bottom_label(bottom_group) {
-        const bottom_label = new Gtk.Label({
-            label: 'Add Wireguard Connection',
-            valign: Gtk.Align.CENTER,
-        });
-        bottom_group.add(bottom_label);
-    };
-
-    _create_choose_button(bottom_group) {
-        const button1 = new Gtk.Button({
-            label: 'Choose Wireguard Configuration file',
-            valign: Gtk.Align.CENTER,
-            margin_top: '8',
-        });
-        button1.connect('clicked', () => {
-            this._select_configuration_file();
-        });
-        bottom_group.add(button1);
-    };
-}; // End of constructor WireGuardOptions
-
-
-function init() {
-}
-
-export default class WireguardPreferences extends ExtensionPreferences {
+export default class WG_Indicator_Preferences extends ExtensionPreferences {
     fillPreferencesWindow(window) {
-        // Initialize the constructor
-        const client = NM.Client.new(null);
-        const wireguard_options = new WireGuardOptions(client);
-
-        // Create a preferences page and group
-        const page = new Adw.PreferencesPage();
-        const group = new Adw.PreferencesGroup();
-        const top_group = new Adw.PreferencesGroup();
-        const bottom_group = new Adw.PreferencesGroup();
-        page.add(top_group);
-        page.add(group);
-        page.add(bottom_group);
-
-
-        //Create top label
-        wireguard_options._create_top_label(top_group);
-
-        // Create a row per connections
-        wireguard_options._create_rows(group);
-
-        //Create a Bottom label
-        wireguard_options._create_bottom_label(bottom_group);
-
-        //Create a button to select a wireguard configuration
-        wireguard_options._create_choose_button(bottom_group);
-
-        // Create a signal to NM to check for added connection
-        client.connect('connection-added', (_client, _connection) => {
-            if (_connection.get_connection_type() == 'wireguard') {
-                wireguard_options._create_row(group, _connection);
-            };
+    
+        //Create a cancellable
+        const _cancel = new Gio.Cancellable();
+        const _client = NM.Client.new(_cancel);
+        //Get the settings
+        window._settings = this.getSettings();
+        // Call the constructor
+        const wg_pref = new WGPreferences(window._settings);
+        
+        // Create a preferences page, with a single group
+        const page = new Adw.PreferencesPage({
+            title: _('General'),
+            icon_name: 'dialog-information-symbolic',
         });
-
-        // Add our page to the window
         window.add(page);
 
-        //Create the signal to stop the client when the window is destroyed
-        window.connect('close-request', () => {
-            this.client = null;
+        const connection_group = new Adw.PreferencesGroup({
+            title: _('Remove Wireguard Connections'),
+            description: _('Select the connection to remove'),
         });
+        page.add(connection_group);
+
+        const add_group = new Adw.PreferencesGroup({
+            title: _('Add Wireguard Connection'),
+            description: _('Add a connection from a .conf file'),
+        });
+        page.add(add_group);
+        
+        const icon_group = new Adw.PreferencesGroup({
+            title: _('Change Active/Inactive Icons'),
+            description: _('The icons can be .svg or .png')
+        });
+        page.add(icon_group);
+    
+        //Create the rows for every connection
+        _client.get_connections().forEach(item => {
+                if ( item.is_type('wireguard') ){
+                      wg_pref._create_connection_row(item,connection_group,_client,_cancel);  
+                };
+            });
+        
+        // Create the Add connection row
+        wg_pref._create_add_connection_row(add_group,_cancel,_client);
+        
+        // Create the change icons rows
+        wg_pref._create_change_icon_rows(icon_group,_cancel);
+        
+        // Create a signal a listen to new connection. When found add a row
+        _client.connect('connection-added',(client,new_connection) => {
+            wg_pref._create_connection_row(new_connection,connection_group,_client,_cancel);
+        });
+     
     }
 }
-

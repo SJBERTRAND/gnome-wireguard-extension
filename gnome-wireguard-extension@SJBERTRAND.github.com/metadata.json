@@ -10,5 +10,5 @@
   "url": "https://github.com/SJBERTRAND/gnome-wireguard-extension",
   "settings-schema": "org.gnome.shell.extensions.gnome-wireguard-extension@SJBERTRAND.github.com",
   "uuid": "gnome-wireguard-extension@SJBERTRAND.github.com",
-  "version": 19
+  "version": 20
 }
